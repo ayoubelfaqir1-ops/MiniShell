@@ -1,0 +1,4 @@
+*.class
+src/main/java/ma/youcode/Lineperm/models/file.java
+src/main/java/ma/youcode/Lineperm/services/fileService.java
+AGENTS.md
