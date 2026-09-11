@@ -27,35 +27,77 @@ public class ConsoleApp {
             }else {
                 System.out.print(currentUser.getUsername() + "@" + "linperm>");
             }
-            String command = scanner.nextLine().trim().toLowerCase();
+            String[] userInput = new String[0];
+            if(scanner.hasNextLine()) {
+                userInput = scanner.nextLine().trim().toLowerCase().split("\\s+"); 
+            }
+            String command = userInput.length >= 1 ? userInput[0] : "" ;
+            String param = userInput.length > 1 ? param = userInput[1] : "";
+            String extraParam = userInput.length > 2 ? extraParam = userInput[2] : "";
+
             switch(command){
                 case "login":
                     if(currentUser != null) {
-                        System.out.pirintln("You are already loged in!");
-                    }
+                        System.out.println("You are already loged in!");
+                    }else {
                     System.out.print("Username: ");
                     String loginUsername = scanner.nextLine().trim();
                     System.out.print("Password: ");
                     String loginPassword = scanner.nextLine().trim();
                     currentUser = userService.login(loginUsername, loginPassword);
+                    }
                     break;
                 case "signup":
-                    System.out.print("Username: ");
-                    String signupUsername = scanner.nextLine().trim();
-                    System.out.print("Password: ");
-                    String signupPassword = scanner.nextLine().trim();
-                        currentUser = userService.signup(signupUsername, signupPassword);
+                    if(currentUser != null) {
+                        System.out.println("You are already loged in!");
+                    }else {
+                        System.out.print("Username: ");
+                        String signupUsername = scanner.nextLine().trim();
+                        System.out.print("Password: ");
+                        String signupPassword = scanner.nextLine().trim();
+                            currentUser = userService.signup(signupUsername, signupPassword);
+                    }
                     break;
                 case "help":
                     break;
                 case "exit":
                     active = false;
                     break;
-                case null:
-                    System.out.print("Please enter a command.");
+                case "touch":
+                    if(currentUser == null) {
+                        System.out.println("please login first!");
+                    }else {
+                        if (userInput.length > 2) {
+                            System.out.println("Too much arguments.");
+                        }else if(param.isEmpty())
+                            System.out.println("Please add the file name");
+                        else
+                            fileService.createFile(param ,currentUser.getUsername());
+                    }
                     break;
-                case default:
-                    System.out.print("command does not exist.");
+                case "ls":
+                    if(currentUser == null) {
+                        System.out.println("please login first!");
+                    }else {
+                    fileService.showFiles();
+                    }
+                    break;
+                case "cat":
+                    if(currentUser == null) {
+                        System.out.println("please login first!");
+                    }else {
+                    fileService.catFile(currentUser, param);
+                    }
+                    break;
+                case "nano":
+                    fileService.editFile(currentUser, param, scanner);
+                    break;
+                case "chmod":
+                    fileService.editFilePermissions(currentUser, extraParam, param);
+                    break;
+                default:
+                    System.out.println("command does not exist.");
+                    break;
             }
         }
     }

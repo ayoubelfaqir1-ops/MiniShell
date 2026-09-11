@@ -37,7 +37,7 @@ public class UserService {
     }
 
     public User signup(String username, String password) {
-        if(username.isempty()) {
+        if(username.isEmpty()) {
             System.out.println("The username should not be empty.");
             return null;
         }
@@ -50,7 +50,7 @@ public class UserService {
             return null;
         }
 
-        if(password.isempty()) {
+        if(password.isEmpty()) {
             System.out.println("The password should not be empty.");
             return null;
         }
