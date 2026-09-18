@@ -79,7 +79,7 @@ public class ConsoleApp {
                     if(currentUser == null) {
                         System.out.println("please login first!");
                     }else {
-                    fileService.showFiles();
+                    fileService.showFiles(currentUser);
                     }
                     break;
                 case "cat":
@@ -95,6 +95,15 @@ public class ConsoleApp {
                 case "chmod":
                     fileService.editFilePermissions(currentUser, extraParam, param);
                     break;
+                case "stats":
+                    if (currentUser != null) {
+                        logAnalyzer.demarrer(scanner);
+                        break;
+                    }else {
+                        System.out.println("You must authenticate first");
+                        break;
+                    }
+                    
                 default:
                     System.out.println("command does not exist.");
                     break;
