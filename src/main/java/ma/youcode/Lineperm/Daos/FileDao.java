@@ -21,7 +21,7 @@ public class FileDao extends AbstractDao<File> {
             stmt.setString(1, name);
             ResultSet rs = stmt.executeQuery();
             if (rs.next()) {
-                return Optional.of(new File(rs.getString("name"), rs.getString("permissions")));
+                return Optional.of(new File(rs.getString("name"), rs.getString("owner"), rs.getString("permissions")));
             }
             return Optional.empty();
         } catch (SQLException e) {
@@ -35,7 +35,7 @@ public class FileDao extends AbstractDao<File> {
         try (Statement stmt = cn.createStatement()) {
             ResultSet rs = stmt.executeQuery("SELECT * FROM files");
             while (rs.next()) {
-                files.add(new File(rs.getString("name"), rs.getString("permissions")));
+                files.add(new File(rs.getString("name"), rs.getString("owner"), rs.getString("permissions")));
             }
         } catch (SQLException e) {
             throw new RuntimeException("Error getting all files", e);
@@ -45,10 +45,12 @@ public class FileDao extends AbstractDao<File> {
 
     @Override
     public boolean save(File file) {
-        String sql = "INSERT INTO files (name, permissions) VALUES (?, ?)";
+        String sql = "INSERT INTO files (name, permissions, owner, content) VALUES (?, ?, ?, ?)";
         try (PreparedStatement stmt = cn.prepareStatement(sql)) {
             stmt.setString(1, file.getName());
             stmt.setString(2, file.getPermissions());
+            stmt.setString(3, file.getOwner());
+            stmt.setString(4, file.getContent());
             return stmt.executeUpdate() > 0;
         } catch (SQLException e) {
             throw new RuntimeException("Error saving file", e);

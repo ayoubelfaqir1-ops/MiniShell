@@ -2,13 +2,15 @@ package ma.youcode.Lineperm.ui;
 
 import java.util.Scanner;
 
+import ma.youcode.Lineperm.Daos.ActionsDao;
+import ma.youcode.Lineperm.Daos.FileDao;
 import ma.youcode.Lineperm.models.User;
 import ma.youcode.Lineperm.services.FileService;
 import ma.youcode.Lineperm.services.UserService;
 
 public class ConsoleApp {
     UserService userService = new UserService();
-    FileService fileService = new FileService();
+    FileService fileService = new FileService(new FileDao(), new ActionsDao());
     Scanner scanner = new Scanner(System.in);
 
     public void demarrer() {
@@ -102,6 +104,9 @@ public class ConsoleApp {
                     break;
                 case "chmod":
                     fileService.editFilePermissions(currentUser, extraParam, param);
+                    break;
+                case "delete":
+                    fileService.deleteFile(param ,currentUser);
                     break;
                 case "stats":
                     if (currentUser != null) {

@@ -3,45 +3,39 @@ package ma.youcode.Lineperm.services;
 import ma.youcode.Lineperm.enums.ActionStatus;
 import ma.youcode.Lineperm.enums.ActionType;
 import ma.youcode.Lineperm.models.User;
-import java.io.IOException;
 import java.util.List;
 import java.util.Scanner;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.nio.file.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
+import ma.youcode.Lineperm.Daos.ActionsDao;
+import ma.youcode.Lineperm.Daos.FileDao;
+import ma.youcode.Lineperm.models.Action;
+import ma.youcode.Lineperm.models.File;
+
 public class FileService {
-    private final Path filesFile = Paths.get("src", "main", "Resources", "Files.txt");
-    private final Path actionsFile = Paths.get("src", "main", "Resources", "Actions.txt");
-    DateTimeFormatter formatter24 = DateTimeFormatter.ofPattern("HH:mm");
+
+    private final FileDao fileDao;
+    private final ActionsDao actionsDao;
+    private final DateTimeFormatter formatter24 = DateTimeFormatter.ofPattern("HH:mm");
+
+    public FileService(FileDao fileDao, ActionsDao actionsDao) {
+        this.fileDao = fileDao;
+        this.actionsDao = actionsDao;
+    }
 
     public void showFiles(User user) {
-        try {
-            List<String> lines = Files.readAllLines(filesFile);
-            if (lines.size() >= 1) {
-                for (String line : lines) {
-                    if (line.isEmpty())
-                        continue;
-
-                    String[] fileInfo = line.split(":");
-                    String filePermissions = fileInfo[0];
-                    String userName = fileInfo[1];
-                    String fileName = fileInfo[2];
-                    Path filePath = Paths.get("src", "main", "Resources", "files", fileName + ".txt");
-                    if (Files.exists(filePath))
-                        System.out.println(filePermissions + " " + userName + " " + fileName);
-                }
-                
-            } else {
-                System.out.println("No files!");
+        List<File> files = fileDao.getAll();
+        if (files.size() >= 1) {
+            for (File file : files) {
+                System.out.println(file.getPermissions() + " " + file.getOwner() + " " + file.getName() + ".txt");
             }
-            addAction("ALL", user.getUsername(), ActionType.LECTURE, ActionStatus.OK);
-        } catch (IOException e) {
-            System.out.println("Error reading file");
+
+        } else {
+            System.out.println("No files!");
         }
+        addAction("ALL", user.getUsername(), ActionType.LECTURE, ActionStatus.OK);
     }
 
     public void createFile(String name, String userName) {
@@ -50,86 +44,43 @@ public class FileService {
             addAction(name + ".txt", userName, ActionType.LECTURE, ActionStatus.REFUSE);
             return;
         }
-        Path createdFile = Paths.get("src", "main", "Resources", "files", name + ".txt");
 
-        if (Files.exists(createdFile)) {
-            System.out.println("a file already exist with that name.");
-            addAction(name + ".txt", userName, ActionType.CREATION, ActionStatus.REFUSE);
-            
-        } else {
-            try {
-                addFileToMetadata(name);
-            } catch (IOException e) {
-                e.printStackTrace();
+        List<File> files = fileDao.getAll();
+
+        for (File file : files) {
+            if (file.getName().equals(name)) {
+                System.out.println("a file already exist with that name.");
+                addAction(name + ".txt", userName, ActionType.CREATION, ActionStatus.REFUSE);
             }
-            try {
-                BufferedWriter bw = Files.newBufferedWriter(filesFile, StandardOpenOption.CREATE,
-                        StandardOpenOption.APPEND);
-                bw.write("rwd|---" + ":" + userName + ":" + name + System.lineSeparator());
-                bw.close();
-                Files.createDirectories(createdFile.getParent());
-                bw = Files.newBufferedWriter(createdFile, StandardOpenOption.CREATE);
-                bw.close();
-                addAction(name + ".txt", userName, ActionType.CREATION, ActionStatus.OK);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            System.out.println("The file " + name + " has been created succefuly");
         }
-    }
 
-    private void addFileToMetadata(String name) throws IOException {
-        Path tempFile = Files.createTempFile(filesFile.getParent(), "temp-", ".txt");
+        File createdFile = new File(name, userName, "rwd|---");
+        boolean saved = fileDao.save(createdFile);
 
-        try (BufferedReader reader = Files.newBufferedReader(filesFile);
-                BufferedWriter writer = Files.newBufferedWriter(tempFile)) {
-            String currentLine;
-            while ((currentLine = reader.readLine()) != null) {
-                if (currentLine.isEmpty()) {
-                    continue;
-                }
-                String[] fileInfo = currentLine.split(":");
-                String fileName = fileInfo[2];
-
-                if (!fileName.equals(name)) {
-                    writer.write(currentLine);
-                    writer.newLine();
-                } else {
-                    System.out.println("Line deleted successfully!");
-                    continue;
-                }
-            }
-            Files.move(tempFile, filesFile, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (saved) {
+            System.out.println("The file " + name + " has been created succefuly");
+        } else {
+            System.out.println("Failed to create the file " + name);
         }
     }
 
     public void catFile(User user, String name) {
-        Path filePath = Paths.get("src", "main", "Resources", "files", name + ".txt");
-        if (Files.exists(filePath) && ControlAcces.canDo(name, "r", user)) {
+        File file = fileDao.getByName(name).orElse(null);
+        if (file != null && ControlAcces.canDo(name, "r", user)) {
             System.out.println(name + ".txt" + ":");
-            try {
-                List<String> lines = Files.readAllLines(filePath);
-                for (String line : lines) {
-                    System.out.println(line);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            System.out.println(file.getContent());
             addAction(name + ".txt", user.getUsername(), ActionType.LECTURE, ActionStatus.OK);
         } else if (name == "") {
             System.out.println("please enter the name of file.");
         } else {
-            System.out.println("failed to get file content");
+            System.out.println("failed to find file:" + name);
         }
         addAction(name + ".txt", user.getUsername(), ActionType.LECTURE, ActionStatus.REFUSE);
     }
 
     public void editFile(User user, String name, Scanner scanner) {
-
-        Path filePath = Paths.get("src", "main", "Resources", "files", name + ".txt");
-        if (Files.exists(filePath) && ControlAcces.canDo(name, "w", user)) {
+        File file = fileDao.getByName(name).orElse(null);
+        if (file != null && ControlAcces.canDo(name, "w", user)) {
             System.out.println("Enter the content that will replace " + name + ".txt" + " current content" + ":");
             StringBuilder sb = new StringBuilder();
             while (scanner.hasNextLine()) {
@@ -142,87 +93,43 @@ public class FileService {
                 sb.append(line).append(System.lineSeparator());
             }
             String content = sb.toString();
-            try (BufferedWriter bw = Files.newBufferedWriter(filePath, StandardOpenOption.TRUNCATE_EXISTING)) {
-                bw.write(content);
-                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }else if(!Files.exists(filePath)){
-            System.out.println("file not exist");
-        }else if(!ControlAcces.canDo(name, "w", user)){
+            boolean updated = fileDao.update(new File(name, file.getOwner(), file.getPermissions(), content));
+            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
+        } else if (name == "") {
+            System.out.println("please enter the name of file.");
+        } else if (!ControlAcces.canDo(name, "w", user)) {
             System.out.println("You don't have permissions.");
             addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
         } else if (name == "") {
             System.out.println("please enter the name of file.");
-            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
+        } else {
+            System.out.println("failed to find file:" + name);
         }
     }
 
     public void editFilePermissions(User user, String name, String Permissions) {
-        try {
-            List<String> lines = Files.readAllLines(filesFile);
-            if (lines.size() >= 1) {
-                for (String line : lines) {
-                    if (line.isEmpty())
-                        continue;
-
-                    String[] fileInfo = line.split(":");
-
-                    String userName = fileInfo[1];
-                    String fileName = fileInfo[2];
-
-                    if (fileName.equals(name)) {
-                        if (!(user.getUsername().equals(userName))) {
-                            System.out.println("You don't have the permission to change permissions");
-                            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
-                            continue;
-                        }
-                        String[] filePermissions = fileInfo[0].split("\\|");
-                        String othersPermissions = filePermissions[1];
-                        if (Permissions.startsWith("-") && Permissions.length() <= 4) {
-                            removePermissions(name, othersPermissions, Permissions);
-                            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
-                        } else if (Permissions.length() <= 3) {
-                            addPermissions(name, othersPermissions, Permissions);
-                            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
-                        } else {
-                            System.out.println("Invalid permissions .");
-                            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
-                        }
-                    }
-                }
+        File file = fileDao.getByName(name).orElse(null);
+        if (file != null) {
+            if (!(user.getUsername().equals(file.getOwner()))) {
+                System.out.println("You don't have the permission to change permissions");
+                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
+            }
+            String[] filePermissions = file.getPermissions().split("\\|");
+            String othersPermissions = filePermissions[1];
+            if (Permissions.startsWith("-") && Permissions.length() <= 4) {
+                removePermissions(file, othersPermissions, Permissions);
+                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
+            } else if (Permissions.length() <= 3) {
+                addPermissions(file, othersPermissions, Permissions);
+                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
             } else {
-                System.out.println("No files!");
+                System.out.println("Invalid permissions .");
+                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
             }
-        } catch (IOException e) {
-            System.out.println("Error reading file");
         }
     }
 
-    private void replacePermissions(String name, String newOthersPerms, String OldOthersPerms) throws IOException {
-        Path tempFile = Files.createTempFile(filesFile.getParent(), "temp-", ".txt");
-        try (BufferedReader reader = Files.newBufferedReader(filesFile);
-                BufferedWriter writer = Files.newBufferedWriter(tempFile)) {
-            String currentLine;
-            while ((currentLine = reader.readLine()) != null) {
-                if (currentLine.isEmpty()) {
-                    continue;
-                }
-                if (currentLine.contains(name)) {
-                    currentLine = currentLine.replace(OldOthersPerms, newOthersPerms);
-                    writer.write(currentLine);
-                    writer.newLine();
-                }
-            }
-            Files.move(tempFile, filesFile, StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("Permissions updated succefuly .");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void removePermissions(String name, String othersPermissions, String Permissions) {
+    private void removePermissions(File file, String othersPermissions, String Permissions) {
         String newOthersPermissions = othersPermissions;
         String[] perms = Permissions.split("");
 
@@ -246,14 +153,11 @@ public class FileService {
                 }
             }
         }
-        try {
-            replacePermissions(name, newOthersPermissions, othersPermissions);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        file.setPermissions(newOthersPermissions);
+        fileDao.update(file);
     }
 
-    private void addPermissions(String name, String othersPermissions, String Permissions) {
+    private void addPermissions(File file, String othersPermissions, String Permissions) {
 
         String[] template = { "r", "w", "d" };
         String[] chars = othersPermissions.split("");
@@ -264,21 +168,34 @@ public class FileService {
         }
         String newOthersPermissions = String.join("", chars);
 
-        try {
-            replacePermissions(name, newOthersPermissions, othersPermissions);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        file.setPermissions(newOthersPermissions);
+        fileDao.update(file);
     }
-    public void addAction(String name, String userName, ActionType actionType, ActionStatus actionStatus) {
-        try {
-            Files.writeString(
-            actionsFile, 
-            LocalDate.now() + ";" + LocalTime.now().format(formatter24) + ";" + userName + ";" + actionType + ";" + name + ";" + actionStatus + System.lineSeparator(),
-            StandardOpenOption.APPEND
-        );
-        } catch (IOException e) {
-            e.printStackTrace();
+
+    public void addAction(String target, String userName, ActionType type, ActionStatus status) {
+        Action action = new Action(
+                LocalDate.now().toString(),
+                LocalTime.now().format(formatter24),
+                userName,
+                type,
+                target,
+                status);
+        actionsDao.save(action);
+    }
+
+    public void deleteFile(String name, User user) {
+        File file = fileDao.getByName(name).orElse(null);
+
+        if (file != null && ControlAcces.canDo(name, "d", user)) {
+            fileDao.delete(file);
+            System.out.println("file " + name + " deleted succefully");
+            addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.OK);
+        } else if (file == null) {
+            System.out.println("No file with name " + name);
+            addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.REFUSE);
+        } else if (!ControlAcces.canDo(name, "d", user)) {
+            System.out.println("You don't have the permission to delte file :" + name);
+            addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.REFUSE);
         }
     }
 }

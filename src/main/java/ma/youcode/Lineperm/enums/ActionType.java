@@ -5,5 +5,6 @@ public enum ActionType {
     CREATION,
     ECRITURE,
     MODIFICATION,
-    SUPPRESSION
+    SUPPRESSION,
+    SUPPRIMER
 }
