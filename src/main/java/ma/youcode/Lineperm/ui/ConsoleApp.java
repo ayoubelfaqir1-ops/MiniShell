@@ -58,6 +58,14 @@ public class ConsoleApp {
                             currentUser = userService.signup(signupUsername, signupPassword);
                     }
                     break;
+                case "logout":
+                    if(currentUser == null) {
+                        System.out.println("You are not loged in!");
+                    }else {
+                        currentUser = null;
+                        System.out.println("You have successfully logged out.");
+                    }
+                    break;
                 case "help":
                     break;
                 case "exit":
