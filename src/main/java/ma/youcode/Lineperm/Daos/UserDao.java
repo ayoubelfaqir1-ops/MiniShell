@@ -11,7 +11,7 @@ import java.util.Optional;
 
 import ma.youcode.Lineperm.models.User;
 
-class UserDao extends AbstractDao<User> {
+public class UserDao extends AbstractDao<User> {
 
     Connection cn = super.getConnection();
 
@@ -49,13 +49,12 @@ class UserDao extends AbstractDao<User> {
 
     @Override
     public boolean save(User user) {
-        String sql = "INSERT INTO users (id, username, password) VALUES (?, ?, ?)";
+        String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
 
         try (PreparedStatement stmt = cn.prepareStatement(sql)) {
 
-            stmt.setInt(1, user.getId());
-            stmt.setString(2, user.getUsername());
-            stmt.setString(3, user.getPassword());
+            stmt.setString(1, user.getUsername());
+            stmt.setString(2, user.getPassword());
 
             int rowsAffected = stmt.executeUpdate();
 
