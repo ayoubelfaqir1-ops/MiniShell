@@ -18,11 +18,13 @@ public class FileService {
 
     private final FileDao fileDao;
     private final ActionsDao actionsDao;
+    private final logAnalyzerService logService;
     private final DateTimeFormatter formatter24 = DateTimeFormatter.ofPattern("HH:mm");
 
-    public FileService(FileDao fileDao, ActionsDao actionsDao) {
-        this.fileDao = fileDao;
-        this.actionsDao = actionsDao;
+    public FileService(logAnalyzerService logSerive) {
+        this.fileDao = new FileDao();
+        this.actionsDao = new ActionsDao();
+        this.logService = logSerive;
     }
 
     public void showFiles(User user) {
@@ -35,13 +37,13 @@ public class FileService {
         } else {
             System.out.println("No files!");
         }
-        addAction("ALL", user.getUsername(), ActionType.LECTURE, ActionStatus.OK);
+        logService.addAction("ALL", user.getUsername(), ActionType.LECTURE, ActionStatus.OK);
     }
 
     public void createFile(String name, String userName) {
         if (name.contains(" ") || name.contains(":")) {
             System.out.println("The name should not contain spaces or ':' characters.");
-            addAction(name + ".txt", userName, ActionType.LECTURE, ActionStatus.REFUSE);
+            logService.addAction(name + ".txt", userName, ActionType.CREATION, ActionStatus.REFUSE);
             return;
         }
 
@@ -50,7 +52,7 @@ public class FileService {
         for (File file : files) {
             if (file.getName().equals(name)) {
                 System.out.println("a file already exist with that name.");
-                addAction(name + ".txt", userName, ActionType.CREATION, ActionStatus.REFUSE);
+                logService.addAction(name + ".txt", userName, ActionType.CREATION, ActionStatus.REFUSE);
             }
         }
 
@@ -59,6 +61,7 @@ public class FileService {
 
         if (saved) {
             System.out.println("The file " + name + " has been created succefuly");
+            logService.addAction(name + ".txt", userName, ActionType.CREATION, ActionStatus.OK);
         } else {
             System.out.println("Failed to create the file " + name);
         }
@@ -69,13 +72,13 @@ public class FileService {
         if (file != null && ControlAcces.canDo(name, "r", user)) {
             System.out.println(name + ".txt" + ":");
             System.out.println(file.getContent());
-            addAction(name + ".txt", user.getUsername(), ActionType.LECTURE, ActionStatus.OK);
+            logService.addAction(name + ".txt", user.getUsername(), ActionType.LECTURE, ActionStatus.OK);
         } else if (name == "") {
             System.out.println("please enter the name of file.");
         } else {
             System.out.println("failed to find file:" + name);
         }
-        addAction(name + ".txt", user.getUsername(), ActionType.LECTURE, ActionStatus.REFUSE);
+        logService.addAction(name + ".txt", user.getUsername(), ActionType.LECTURE, ActionStatus.REFUSE);
     }
 
     public void editFile(User user, String name, Scanner scanner) {
@@ -94,12 +97,12 @@ public class FileService {
             }
             String content = sb.toString();
             boolean updated = fileDao.update(new File(name, file.getOwner(), file.getPermissions(), content));
-            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
+            logService.addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
         } else if (name == "") {
             System.out.println("please enter the name of file.");
         } else if (!ControlAcces.canDo(name, "w", user)) {
             System.out.println("You don't have permissions.");
-            addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
+            logService.addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
         } else if (name == "") {
             System.out.println("please enter the name of file.");
         } else {
@@ -112,19 +115,19 @@ public class FileService {
         if (file != null) {
             if (!(user.getUsername().equals(file.getOwner()))) {
                 System.out.println("You don't have the permission to change permissions");
-                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
+                logService.addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
             }
             String[] filePermissions = file.getPermissions().split("\\|");
             String othersPermissions = filePermissions[1];
             if (Permissions.startsWith("-") && Permissions.length() <= 4) {
                 removePermissions(file, othersPermissions, Permissions);
-                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
+                logService.addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
             } else if (Permissions.length() <= 3) {
                 addPermissions(file, othersPermissions, Permissions);
-                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
+                logService.addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.OK);
             } else {
                 System.out.println("Invalid permissions .");
-                addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
+                logService.addAction(name + ".txt", user.getUsername(), ActionType.MODIFICATION, ActionStatus.REFUSE);
             }
         }
     }
@@ -172,30 +175,19 @@ public class FileService {
         fileDao.update(file);
     }
 
-    public void addAction(String target, String userName, ActionType type, ActionStatus status) {
-        Action action = new Action(
-                LocalDate.now().toString(),
-                LocalTime.now().format(formatter24),
-                userName,
-                type,
-                target,
-                status);
-        actionsDao.save(action);
-    }
-
     public void deleteFile(String name, User user) {
         File file = fileDao.getByName(name).orElse(null);
 
         if (file != null && ControlAcces.canDo(name, "d", user)) {
             fileDao.delete(file);
             System.out.println("file " + name + " deleted succefully");
-            addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.OK);
+            logService.addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.OK);
         } else if (file == null) {
             System.out.println("No file with name " + name);
-            addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.REFUSE);
+            logService.addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.REFUSE);
         } else if (!ControlAcces.canDo(name, "d", user)) {
             System.out.println("You don't have the permission to delte file :" + name);
-            addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.REFUSE);
+            logService.addAction(name, user.getUsername(), ActionType.SUPPRIMER, ActionStatus.REFUSE);
         }
     }
 }

@@ -7,10 +7,12 @@ import ma.youcode.Lineperm.Daos.FileDao;
 import ma.youcode.Lineperm.models.User;
 import ma.youcode.Lineperm.services.FileService;
 import ma.youcode.Lineperm.services.UserService;
+import ma.youcode.Lineperm.services.logAnalyzerService;
 
 public class ConsoleApp {
     UserService userService = new UserService();
-    FileService fileService = new FileService(new FileDao(), new ActionsDao());
+    logAnalyzerService logService = new logAnalyzerService();
+    FileService fileService = new FileService(logService);
     Scanner scanner = new Scanner(System.in);
 
     public void demarrer() {
@@ -110,7 +112,7 @@ public class ConsoleApp {
                     break;
                 case "stats":
                     if (currentUser != null) {
-                        logAnalyzer.demarrer(scanner);
+                        logAnalyzer.demarrer(scanner, logService);
                         break;
                     }else {
                         System.out.println("You must authenticate first");
