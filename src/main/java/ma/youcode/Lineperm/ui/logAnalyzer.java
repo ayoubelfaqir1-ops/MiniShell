@@ -6,8 +6,7 @@ import ma.youcode.Lineperm.services.logAnalyzerService;
 
 public class logAnalyzer {
     
-    public static void demarrer(Scanner scanner) {
-        logAnalyzerService logAnServ = new logAnalyzerService();
+    public static void demarrer(Scanner scanner ,logAnalyzerService logAnServ) {
         Boolean a = true;
         System.out.println("Bienvenue dans LogAnalyzer. Choisissez une statistique par son numéro.");
         System.out.println("=== LogAnalyzer ===");
